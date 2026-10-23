@@ -222,9 +222,11 @@ if st.session_state.df is not None:
                     st.markdown(user_question)
                 
                 with st.chat_message("assistant"):
-                    with st.spinner("Analyzing and writing code..."):
+                    with st.spinner("Analyzing and answering..."):
+                        if "cached_dataset_summary" not in st.session_state:
+                            st.session_state.cached_dataset_summary = profile_dataset(df)
                         initial_state = {
-                            "dataset_summary": profile_dataset(df),
+                            "dataset_summary": st.session_state.cached_dataset_summary,
                             "chat_history": st.session_state.agent_history[:-1], # pass all but the current question
                             "question": user_question,
                             "dataset_path": st.session_state.df_path,
@@ -247,35 +249,36 @@ if st.session_state.df is not None:
                             else:
                                 st.write("Code executed successfully.")
 
-                            with st.expander("Generated Code"):
-                                st.code(final_state["generated_code"], language="python")
+                            if final_state.get("generated_code"):
+                                with st.expander("Generated Code"):
+                                    st.code(final_state["generated_code"], language="python")
                             
                             # Handle FIT_CHECK rendering
                             fit_evidence = None
                             if exec_output:
-                                    try:
-                                        out_json = json.loads(exec_output)
-                                        if "fit_check_evidence" in out_json:
-                                             fit_evidence = out_json["fit_check_evidence"]
-                                    except:
-                                        pass
+                                try:
+                                    out_json = json.loads(exec_output)
+                                    if "fit_check_evidence" in out_json:
+                                        fit_evidence = out_json["fit_check_evidence"]
+                                except:
+                                    pass
+                                 
+                                if fit_evidence:
+                                    verdict = fit_evidence["verdict"]["verdict"]
+                                    color = "green" if verdict == "Good fit" else "orange" if verdict == "Okay" else "red"
+                                    st.markdown(f"### <span style='color:{color}'>{verdict}</span>", unsafe_allow_html=True)
+                            
+                                    st.write(f"**Alternative:** {fit_evidence['verdict']['alternative']}")
+                            
+                                    with st.expander("Assumption Violations"):
+                                        if fit_evidence["assumptions"]:
+                                            st.table(pd.DataFrame(fit_evidence["assumptions"]))
+                                        else:
+                                            st.write("No violations found.")
                                      
-                                    if fit_evidence:
-                                        verdict = fit_evidence["verdict"]["verdict"]
-                                        color = "green" if verdict == "Good fit" else "orange" if verdict == "Okay" else "red"
-                                        st.markdown(f"### <span style='color:{color}'>{verdict}</span>", unsafe_allow_html=True)
-                                
-                                        st.write(f"**Alternative:** {fit_evidence['verdict']['alternative']}")
-                                
-                                        with st.expander("Assumption Violations"):
-                                            if fit_evidence["assumptions"]:
-                                                st.table(pd.DataFrame(fit_evidence["assumptions"]))
-                                            else:
-                                                st.write("No violations found.")
-                                         
-                                        if fit_evidence["measured"].get("score"):
-                                            st.write(f"Measured Score: {fit_evidence['measured']['score']:.4f}")
-                                
+                                    if fit_evidence["measured"].get("score"):
+                                        st.write(f"Measured Score: {fit_evidence['measured']['score']:.4f}")
+                            
                                     col1, col2 = st.columns(2)
                                     with col1:
                                         if st.button("Test the suggested fix", key=f"fix_{len(st.session_state.agent_history)}"):
@@ -284,19 +287,19 @@ if st.session_state.df is not None:
                                         if st.button("Run this algorithm", key=f"run_{len(st.session_state.agent_history)}"):
                                             st.info(f"Running {fit_evidence['algorithm']}...")
                             
-                                    chart_path = "sandbox_temp/chart.png"
-                                    has_chart = os.path.exists(chart_path)
-                                    if has_chart:
-                                        st.image(chart_path)
-                                    st.session_state.agent_history.append({
-                                        "role": "assistant",
-                                        "content": explanation or (f"```text\n{exec_output}\n```" if exec_output else "Executed."),
-                                        "output": exec_output,
-                                        "code": final_state["generated_code"],
-                                        "chart": chart_path if has_chart else None,
-                                        "fit_evidence": fit_evidence
-                                    })
-                                    st.rerun()
+                            chart_path = "sandbox_temp/chart.png"
+                            has_chart = os.path.exists(chart_path)
+                            if has_chart:
+                                st.image(chart_path)
+                            st.session_state.agent_history.append({
+                                "role": "assistant",
+                                "content": explanation or (f"```text\n{exec_output}\n```" if exec_output else "Executed."),
+                                "output": exec_output,
+                                "code": final_state["generated_code"],
+                                "chart": chart_path if has_chart else None,
+                                "fit_evidence": fit_evidence
+                            })
+                            st.rerun()
                         except Exception as e:
                             st.error(f"Agent failed: {e}")
         except Exception as e:
@@ -429,7 +432,29 @@ if st.session_state.df is not None:
                     st.session_state.eval_cache_key = None
                     st.rerun()
 
-            if start_btn:
+            # --- SINGLE / SELECTIVE ALGORITHM RUNNER & FIT CHECK ---
+            from automl.registry import ALGORITHM_REGISTRY
+            algo_names_for_task = sorted([name for name, meta in ALGORITHM_REGISTRY.items() if meta["task"] == detected_task])
+
+            with st.expander("⚡ Run Specific Algorithm(s) (One-by-One / Selective)", expanded=False):
+                st.write("Run specific algorithms one-by-one or select a subset to evaluate and store directly into the **Results Table** above without waiting for a full comparison:")
+                col_sel_algo, col_sel_btn = st.columns([3, 1])
+                with col_sel_algo:
+                    single_algo_choice = st.selectbox(
+                        "Choose algorithm to run & append:",
+                        [""] + algo_names_for_task,
+                        key="single_algo_runner_select"
+                    )
+                with col_sel_btn:
+                    st.write("")
+                    st.write("")
+                    run_single_btn = st.button("▶️ Run Algorithm", key="run_single_algo_btn", type="secondary")
+
+            selected_algo_to_run = [single_algo_choice] if (run_single_btn and single_algo_choice) else None
+            if run_single_btn and not single_algo_choice:
+                st.warning("Please select an algorithm from the dropdown first.")
+
+            if start_btn or selected_algo_to_run:
                 # Validation checks
                 if target_col:
                     valid_df = df.dropna(subset=[target_col])
@@ -473,7 +498,7 @@ if st.session_state.df is not None:
                         table_placeholder.dataframe(current_df)
 
                 cols_to_drop = []
-                with st.spinner("Executing Two-Stage AutoML Evaluation..."):
+                with st.spinner("Executing AutoML Evaluation..."):
                     try:
                         results_df, primary_metric, meta_info = evaluate_models(
                             eval_df, 
@@ -483,14 +508,28 @@ if st.session_state.df is not None:
                             algo_time_budget=float(algo_budget),
                             progress_callback=live_callback,
                             use_pca=use_pca if detected_task == 'clustering' else False,
-                            columns_to_drop=cols_to_drop
+                            columns_to_drop=cols_to_drop,
+                            selected_models=selected_algo_to_run
                         )
                         
                         # Store by dataset/target/settings
                         cache_key = current_eval_key
                         st.session_state.eval_cache_key = cache_key
-                        st.session_state.eval_results = results_df
-                        st.session_state.eval_meta = meta_info
+                        
+                        if selected_algo_to_run and st.session_state.eval_results is not None:
+                            # Merge and update table
+                            existing_df = st.session_state.eval_results
+                            # Remove old row for this algorithm if present
+                            existing_df = existing_df[~existing_df['Model'].isin(selected_algo_to_run)]
+                            combined_df = pd.concat([existing_df, results_df], ignore_index=True)
+                            from automl.evaluation import compute_recommendations
+                            higher_is_better = primary_metric in ['accuracy', 'f1', 'precision', 'recall', 'r2', 'silhouette']
+                            combined_df = compute_recommendations(combined_df, higher_is_better)
+                            st.session_state.eval_results = combined_df
+                        else:
+                            st.session_state.eval_results = results_df
+                            st.session_state.eval_meta = meta_info
+
                         progress_bar.progress(100)
                         status_box.success(f"✅ Evaluation complete in {meta_info['total_elapsed_seconds']}s! (Cached: {meta_info['is_cached']})")
                     except Exception as e:
@@ -542,7 +581,7 @@ if st.session_state.df is not None:
                             for msg in meta['cleanup_messages']:
                                 st.write(f"- {msg}")
 
-                    if strat['tier'] in ['medium', 'large'] or quick_mode:
+                    if strat['tier'] in ['medium', 'large'] or len(eval_df) < len(df):
                         st.warning("⚠️ **Sampling Warning:** Results are based on a sample strategy for speed. Ranking may vary slightly on 100% full dataset.")
                 except Exception as e:
                     st.error(f"Could not build Strategy Banners: {e}")
@@ -649,7 +688,22 @@ if st.session_state.df is not None:
                     if failed_df.empty:
                         st.write("None.")
                     for _, row in failed_df.iterrows():
-                        st.markdown(f"**{row['Model']}**: {row['Status']} - {row.get('Reason', 'Unknown')}")
+                        m_name = row['Model']
+                        status_val = row['Status']
+                        reason_val = row.get('Reason', 'Unknown')
+                        st.markdown(f"**{m_name}**: {status_val} - {reason_val}")
+                        # Plain-English explanation sentence
+                        if "time budget" in reason_val.lower() or "too slow" in reason_val.lower() or status_val == 'Too slow':
+                            st.caption(f"💡 **Why it does not fit:** {m_name} is too slow on this dataset size and exceeded the allowed time budget ({reason_val}). You can run it on a smaller sample.")
+                        elif "converge" in reason_val.lower() or "iterations" in reason_val.lower():
+                            st.caption(f"💡 **Why it does not fit:** {m_name} hit its maximum iteration limit without finding an optimal solution. It typically needs feature scaling or a simpler neural network architecture.")
+                        elif status_val == 'Failed':
+                            st.caption(f"💡 **Why it does not fit:** {m_name} failed during training: {reason_val}. It may need different data preprocessing or hyperparameters.")
+                        elif status_val == 'Not run: total time budget reached':
+                            st.caption(f"💡 **Why it was skipped:** The total AutoML time budget ran out before {m_name} could be trained. Increase the total budget to include it.")
+                        else:
+                            st.caption(f"💡 **Why it does not fit:** {m_name} could not complete evaluation ({reason_val}).")
+
                         if row['Status'] in ['Too slow', 'Skipped', 'Failed']:
                             if st.button("Run on a sample", key=f"run_sample_list_{row['Model']}"):
                                 st.info(f"To run this on a sample, go to the Fit Check below and select **{row['Model']}**.")
@@ -663,8 +717,13 @@ if st.session_state.df is not None:
                         st.write("None.")
                     else:
                         valid_df = valid_df.sort_values(by='Mean Score', ascending=higher_is_better)
+                        best_score = results_df['Mean Score'].max() if higher_is_better else results_df['Mean Score'].min()
                         for _, row in valid_df.head(5).iterrows():
-                            st.markdown(f"**{row['Model']}**: Score: {row['Mean Score']:.4f} | Train: {row['Mean Train Time (s)']:.4f}s")
+                            m_name = row['Model']
+                            score_val = row['Mean Score']
+                            gap = abs(best_score - score_val) if pd.notna(best_score) and pd.notna(score_val) else 0.0
+                            st.markdown(f"**{m_name}**: Score: {score_val:.4f} | Train: {row['Mean Train Time (s)']:.4f}s")
+                            st.caption(f"💡 **Why it does not fit:** Its predictive accuracy is {gap:.4f} lower than the top models, making other available algorithms a better choice for this data.")
 
                 # --- 2. VERIFY TOP 2 BUTTON ---
                 try:

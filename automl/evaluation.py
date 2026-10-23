@@ -84,14 +84,17 @@ def compute_recommendations(df_results: pd.DataFrame, higher_is_better: bool) ->
     
     df_results['Is Suspicious'] = False
     
-    suspicious_mask = (df_results['Mean Score'] >= 0.999) & (df_results['Score Std Dev'] < 0.01)
-    df_results.loc[suspicious_mask, 'Status'] = 'Suspicious result'
-    df_results.loc[suspicious_mask, 'Is Suspicious'] = True
+    if 'Score Std Dev' in df_results.columns:
+        suspicious_mask = (df_results['Mean Score'] >= 0.999) & (df_results['Score Std Dev'] < 0.01)
+        df_results.loc[suspicious_mask, 'Status'] = 'Suspicious result'
+        df_results.loc[suspicious_mask, 'Is Suspicious'] = True
     
-    valid_mask = df_results['Mean Score'].notna() & (~df_results['Status'].isin(['Not valid', 'Failed', 'Too slow', 'Skipped', 'Suspicious result']))
-    if not valid_mask.any():
-        # Fallback if everything valid is suspicious
-        valid_mask = df_results['Mean Score'].notna() & (~df_results['Status'].isin(['Not valid', 'Failed', 'Too slow', 'Skipped']))
+    if 'Status' in df_results.columns:
+        valid_mask = df_results['Mean Score'].notna() & (~df_results['Status'].isin(['Not valid', 'Failed', 'Too slow', 'Skipped', 'Suspicious result']))
+        if not valid_mask.any():
+            valid_mask = df_results['Mean Score'].notna() & (~df_results['Status'].isin(['Not valid', 'Failed', 'Too slow', 'Skipped']))
+    else:
+        valid_mask = df_results['Mean Score'].notna()
         
     if not valid_mask.any():
         return df_results
@@ -176,7 +179,8 @@ def evaluate_models(
     algo_time_budget: float = DEFAULT_ALGO_TIME_BUDGET,
     progress_callback: Optional[Callable[[str, int, int, str, pd.DataFrame], None]] = None,
     use_pca: Optional[bool] = None,
-    columns_to_drop: Optional[List[str]] = None
+    columns_to_drop: Optional[List[str]] = None,
+    selected_models: Optional[List[str]] = None
 ) -> Tuple[pd.DataFrame, str, Dict[str, Any]]:
     start_total_time = time.perf_counter()
     
@@ -235,13 +239,16 @@ def evaluate_models(
         higher_is_better = True
         scoring = {'silhouette': 'silhouette'}
 
-    n_repeats = 3 if len(X) <= 5000 else 1
+    if selected_models:
+        all_models = {k: v for k, v in all_models.items() if k in selected_models}
+
+    n_repeats = 1
     
     # STAGE 1: SCREENING (If medium or large dataset)
     models_for_stage2 = list(all_models.keys())
     stage1_scores = {}
     
-    if strategy["use_screening"]:
+    if strategy["use_screening"] and not selected_models:
         sample_size = strategy["stage1_sample_size"]
         if y is not None and task_type == "classification":
             sample_idx = X.groupby(y, group_keys=False).apply(
@@ -346,10 +353,6 @@ def evaluate_models(
             
         # 3. Perform Cross-Validation & Timing
         try:
-            if "MLP" in m_name and hasattr(model_inst, "max_iter"):
-                if pred_sec * 2.5 < algo_time_budget:
-                    model_inst.set_params(max_iter=500)
-            
             n_folds = strategy["stage2_folds"]
             if task_type == "clustering":
                 import warnings
@@ -426,17 +429,6 @@ def evaluate_models(
                         cv_res = cross_validate(model_inst, X_eval, y_eval, cv=cv, scoring=scoring)
                         eff = measure_efficiency(model_inst, X_eval, y_eval, task_type, n_repeats)
                         has_convergence_warning = any(issubclass(warn.category, ConvergenceWarning) for warn in w)
-                        
-                        if has_convergence_warning and hasattr(model_inst, "max_iter"):
-                            model_inst.set_params(max_iter=1000)
-                            w.clear()
-                            # Retry
-                            cv_res = cross_validate(model_inst, X_eval, y_eval, cv=cv, scoring=scoring)
-                            eff = measure_efficiency(model_inst, X_eval, y_eval, task_type, n_repeats)
-                            has_convergence_warning = any(issubclass(warn.category, ConvergenceWarning) for warn in w)
-                            if not has_convergence_warning:
-                                # We fixed it!
-                                pass
                                 
                     return cv_res, eff, has_convergence_warning
                     
@@ -447,7 +439,7 @@ def evaluate_models(
                     results.append({
                         "Model": m_name,
                         "Status": "Failed",
-                        "Reason": "Execution error or timeout. See logs.",
+                        "Reason": err_msg if err_msg else "Execution error or timeout.",
                         "Mean Score": np.nan,
                         "Score Std Dev": np.nan,
                         "Mean Train Time (s)": np.nan,
@@ -496,7 +488,7 @@ def evaluate_models(
             results.append({
                 "Model": m_name,
                 "Status": "Failed",
-                "Reason": "Execution error. See logs for details.",
+                "Reason": f"Execution error: {str(e)[:80]}",
                 "Mean Score": np.nan,
                 "Score Std Dev": np.nan,
                 "Mean Train Time (s)": np.nan,

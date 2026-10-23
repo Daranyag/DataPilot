@@ -558,7 +558,14 @@ def render_fit_check(evidence: dict, explanation: dict):
                  with st.spinner(f"Running {algo_name} on a sample..."):
                      try:
                          # Real provisional run
-                         from .registry import ALGORITHM_ALIASES, ALGORITHM_REGISTRY
+                         from .registry import ALGORITHM_ALIASES, ALGORITHM_REGISTRY, get_estimator
+                         from .task_detector import detect_task_type
+                         from .models import get_regression_models, get_classification_models, get_clustering_models
+                         import streamlit as st
+                         
+                         df = st.session_state.get('df')
+                         target = st.session_state.get('target_col', st.session_state.get('target'))
+                         
                          canonical = None
                          for k in ALGORITHM_REGISTRY.keys():
                              if k.lower() == algo_name.lower():
@@ -566,35 +573,42 @@ def render_fit_check(evidence: dict, explanation: dict):
                                  break
                          if not canonical and algo_name.lower() in ALGORITHM_ALIASES:
                              canonical = ALGORITHM_ALIASES[algo_name.lower()][1].__name__
-                         
                          if not canonical:
                              canonical = algo_name
+
+                         task_t = "clustering"
+                         if target and df is not None:
+                             task_t, _ = detect_task_type(df, target)
+                         
+                         # Resolve model instance
+                         model_inst = None
+                         try:
+                             model_dict = {}
+                             if task_t == "regression":
+                                 model_dict = get_regression_models(5000)
+                             elif task_t == "classification":
+                                 model_dict = get_classification_models(5000)
+                             else:
+                                 model_dict = get_clustering_models(5000)
+                             model_inst = model_dict.get(canonical)
+                         except Exception:
+                             pass
                              
-                         # Get model instance
-                         from .task_detector import detect_task_type
-                         from .models import get_regression_models, get_classification_models, get_clustering_models
-                         import streamlit as st
-                         df = st.session_state.get('df')
-                         target = st.session_state.get('target')
-                         task_t, _ = detect_task_type(df, target)
-                         
-                         model_dict = {}
-                         if task_t == "regression": model_dict = get_regression_models(5000)
-                         elif task_t == "classification": model_dict = get_classification_models(5000)
-                         else: model_dict = get_clustering_models(5000)
-                         
-                         model_inst = model_dict.get(canonical)
-                         
-                         if model_inst:
-                             import streamlit as st
-                             df = st.session_state.get('df')
-                             target = st.session_state.get('target')
+                         if not model_inst:
+                             try:
+                                 model_inst = get_estimator(canonical)
+                             except Exception:
+                                 pass
+
+                         if model_inst and df is not None:
                              eval_df = df.sample(n=min(5000, len(df)), random_state=42)
                              X = eval_df.drop(columns=[target]) if target and target in eval_df.columns else eval_df
                              y = eval_df[target] if target and target in eval_df.columns else None
                              
-                             # One-hot encode for simplicity in provisional run (assuming data_prep handles it or we do it quickly)
+                             # One-hot encode for simplicity in provisional run
                              X = pd.get_dummies(X)
+                             if X.isna().any().any():
+                                 X = X.fillna(0)
                              
                              import time
                              from sklearn.model_selection import cross_val_score

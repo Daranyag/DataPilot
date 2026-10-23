@@ -33,6 +33,8 @@ ROW_CAPS = {
     'Support Vector Regressor': 10000,
     'K-Nearest Neighbors': 20000,
     'KNN Regressor': 20000,
+    'MLP Regressor': 5000,
+    'MLP Classifier': 5000,
     'Hierarchical Clustering': 20000,
     'DBSCAN': 20000,
 }

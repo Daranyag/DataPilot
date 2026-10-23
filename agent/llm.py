@@ -141,6 +141,11 @@ def safe_generate_text(prompt: str, system_instruction: str = None, expect_json:
                     logger.error(f"Service busy ({code}), retrying: {err_str}")
                     time.sleep(1)
                     continue
+                elif current_model == primary_model and fallback_model and fallback_model != primary_model:
+                    logger.error(f"Service busy ({code}) on {current_model}. Falling back to {fallback_model}: {err_str}")
+                    current_model = fallback_model
+                    retries_503 = 0
+                    continue
                 else:
                     logger.error(f"Max retries for 503 reached: {err_str}")
                     return SafeLLMResult(ok=False, text="", error_type="503", user_message="The AI service is currently busy. Please try again later.", model_used=current_model)

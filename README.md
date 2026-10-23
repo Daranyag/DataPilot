@@ -19,14 +19,20 @@
 ### 2. 🤖 End-to-End AutoML Engine
 - **Automated Task Detection**: Intelligently identifies whether your dataset problem is **Regression**, **Classification**, or **Clustering** based on target column characteristics.
 - **Smart Data Preparation**: Handles missing values (imputation), categorical encodings, and numerical feature scaling (Standard / MinMax).
-- **5-Fold Cross-Validation**: Validates algorithms rigorously across stratified/standard folds.
-- **Mathematically Sound Ranking**: Compares models using standardized metrics (RMSE, $R^2$, F1-Macro, Accuracy, Silhouette Score) and breaks ties by prioritizing faster, more interpretable models.
+- **Two-Stage Adaptive Evaluation**: Uses fast screening on subsets before full cross-validation to save time on large datasets.
+- **Mathematically Sound Ranking & Awards**: Automatically ranks models and highlights **Most Accurate**, **Fastest to Train**, **Fastest to Predict**, and **Best Balance** based on Pareto dominance rules.
+- **⚡ Selective / Line-by-Line Execution**: Evaluate individual models directly one-by-one and merge results straight into the Results Table without waiting for a full comparison run.
 
-### 3. 🛡️ Secure AST-Based Execution Sandbox
+### 3. 🕵️ Algorithm Fit Check & Plain-English Diagnostics
+- **Pre-flight & Post-flight Fit Check**: Analyzes mathematical assumptions (linearity, multicollinearity, outliers, sample size) for every algorithm against your dataset facts.
+- **Plain-English Explanations**: Tells you in clear, basic English why an algorithm does or does not fit your data, including detailed reasons for timeouts, convergence warnings, or score gaps.
+- **Interactive "Run on a Sample"**: Allows provisional testing on 5,000-row samples directly from the fit check card.
+
+### 4. 🛡️ Secure AST-Based Execution Sandbox
 - Validates all generated Python code against an AST (Abstract Syntax Tree) policy before execution.
 - Blocks hazardous standard libraries (`os`, `sys`, `subprocess`, `shutil`) and dangerous built-ins (`eval`, `exec`, `open`, `__builtins__`).
 
-### 4. 🎨 Interactive Streamlit Interface
+### 5. 🎨 Interactive Streamlit Interface
 - Modern, intuitive web dashboard for uploading datasets, inspecting data profiles, running queries, and viewing AutoML leaderboards with a single click.
 
 ---

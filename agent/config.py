@@ -4,7 +4,13 @@ from google import genai
 
 load_dotenv()
 
+_CACHED_MODELS = None
+
 def get_best_models():
+    global _CACHED_MODELS
+    if _CACHED_MODELS is not None:
+        return _CACHED_MODELS
+
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise ValueError("GEMINI_API_KEY environment variable is missing.")
@@ -37,7 +43,8 @@ def get_best_models():
     if not flash_model:
         flash_model = "models/gemini-3.8-flash"
         
-    return flash_lite_model, flash_model
+    _CACHED_MODELS = (flash_lite_model, flash_model)
+    return _CACHED_MODELS
 
 def get_model_config():
     try:
