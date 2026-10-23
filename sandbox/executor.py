@@ -16,17 +16,21 @@ def run_code(code: str, df_path: str) -> Tuple[bool, str]:
     if not is_safe:
         return False, validation_msg
 
+    clean_df_path = os.path.abspath(df_path).replace("\\", "/")
+
     # 2. Prepare the execution script
     # We inject some setup code so the LLM-generated code has access to `df`
     # without having to write the path loading logic every time (though it can).
     script_content = f"""
 import pandas as pd
 import matplotlib.pyplot as plt
+import sys
 
 try:
-    df = pd.read_csv(r"{df_path}")
+    df = pd.read_csv(r"{clean_df_path}")
 except Exception as e:
-    print(f"Error loading dataset: {{e}}")
+    print(f"Error loading dataset: {{e}}", file=sys.stderr)
+    sys.exit(1)
 
 # --- LLM Generated Code ---
 {code}

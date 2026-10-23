@@ -137,24 +137,29 @@ def explain_result_node(state: AgentState) -> AgentState:
     """Explains the execution output in plain English."""
     from .llm import safe_generate_text
     
-    if state["final_explanation"]:
+    if state.get("final_explanation"):
          return state # Already explained
          
-    if state["retries"] >= state["max_retries"]:
-         # Failed after max retries
-         error_msg = state["execution_error"] or "Unknown error"
-         fallback = f"I tried to write code to answer your question, but it failed. The last error was:\n`{error_msg}`\n\nPlease try rephrasing your question."
+    if state.get("execution_error"):
+         error_msg = state.get("execution_error") or "Unknown execution error"
+         fallback = f"I could not complete this calculation due to an error: {error_msg}. Please try rephrasing your question."
          return {**state, "final_explanation": fallback}
+
+    raw_output = (state.get("execution_output") or "").strip()
+    if not raw_output:
+         return {**state, "final_explanation": f"The analysis for **{state['question']}** finished successfully, but produced no textual output."}
          
     prompt = EXPLAIN_PROMPT.format(
         question=state["question"],
-        output=state["execution_output"]
+        output=raw_output
     )
     
     res = safe_generate_text(prompt)
-    if res.ok:
-         explanation = res.text
+    if res.ok and res.text.strip():
+         explanation = res.text.strip()
     else:
-         explanation = f"**AI explanation unavailable, showing raw output.**\n\n```text\n{state['execution_output']}\n```"
+         clean_out = raw_output.replace("\n", " ").strip()
+         explanation = f"Based on your dataset, the result for **{state['question']}** is: **{clean_out}**."
          
     return {**state, "final_explanation": explanation}
+

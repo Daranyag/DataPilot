@@ -192,9 +192,17 @@ if st.session_state.df is not None:
                 if c2.button(ex4): example_clicked = ex4
             for msg in st.session_state.agent_history:
                 with st.chat_message(msg["role"]):
-                    st.markdown(msg["content"])
-                    if msg.get("output") and not msg.get("fit_evidence"):
-                        st.text(msg["output"])
+                    content_to_show = msg.get("content", "")
+                    raw_out = msg.get("output")
+                    # If old history has "Executed." or is blank, format as a proper sentence with numbers
+                    if content_to_show in ["Executed.", "Code executed successfully.", ""] and raw_out:
+                        content_to_show = f"Result:\n\n**{raw_out.strip()}**"
+                    elif content_to_show in ["Executed.", "Code executed successfully.", ""]:
+                        content_to_show = "Query completed."
+
+                    st.markdown(content_to_show)
+                    if raw_out and not msg.get("fit_evidence") and raw_out.strip() not in content_to_show and content_to_show != f"Result:\n\n**{raw_out.strip()}**":
+                        st.text(raw_out)
                     if msg.get("chart"):
                         st.image(msg["chart"])
                     if msg.get("code"):
@@ -225,6 +233,14 @@ if st.session_state.df is not None:
                     with st.spinner("Analyzing and answering..."):
                         if "cached_dataset_summary" not in st.session_state:
                             st.session_state.cached_dataset_summary = profile_dataset(df)
+                        
+                        # Guarantee df_path always points to a valid file on disk
+                        if not st.session_state.get("df_path") or not os.path.exists(st.session_state.df_path):
+                            temp_dir = tempfile.gettempdir()
+                            temp_path = os.path.join(temp_dir, "current_dataset.csv")
+                            df.to_csv(temp_path, index=False)
+                            st.session_state.df_path = temp_path
+
                         initial_state = {
                             "dataset_summary": st.session_state.cached_dataset_summary,
                             "chat_history": st.session_state.agent_history[:-1], # pass all but the current question
@@ -242,12 +258,18 @@ if st.session_state.df is not None:
                             final_state = st.session_state.agent_workflow.invoke(initial_state)
                             explanation = final_state.get("final_explanation")
                             exec_output = final_state.get("execution_output")
-                            if explanation:
-                                st.markdown(explanation)
-                            elif exec_output:
-                                st.text(exec_output)
+                            
+                            # Build plain English sentence with specific numbers and results
+                            if explanation and explanation.strip():
+                                answer_text = explanation.strip()
+                            elif exec_output and exec_output.strip():
+                                answer_text = f"Based on your dataset, the result for **{user_question}** is:\n\n**{exec_output.strip()}**"
                             else:
-                                st.write("Code executed successfully.")
+                                answer_text = f"The query for **{user_question}** completed."
+                                
+                            st.markdown(answer_text)
+                            if exec_output and exec_output.strip() not in answer_text:
+                                st.text(exec_output)
 
                             if final_state.get("generated_code"):
                                 with st.expander("Generated Code"):
@@ -282,7 +304,7 @@ if st.session_state.df is not None:
                                     col1, col2 = st.columns(2)
                                     with col1:
                                         if st.button("Test the suggested fix", key=f"fix_{len(st.session_state.agent_history)}"):
-                                            st.info("Fix testing initiated...")
+                                             st.info("Fix testing initiated...")
                                     with col2:
                                         if st.button("Run this algorithm", key=f"run_{len(st.session_state.agent_history)}"):
                                             st.info(f"Running {fit_evidence['algorithm']}...")
@@ -293,9 +315,9 @@ if st.session_state.df is not None:
                                 st.image(chart_path)
                             st.session_state.agent_history.append({
                                 "role": "assistant",
-                                "content": explanation or (f"```text\n{exec_output}\n```" if exec_output else "Executed."),
+                                "content": answer_text,
                                 "output": exec_output,
-                                "code": final_state["generated_code"],
+                                "code": final_state.get("generated_code"),
                                 "chart": chart_path if has_chart else None,
                                 "fit_evidence": fit_evidence
                             })

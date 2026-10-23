@@ -7,11 +7,11 @@ def should_retry(state: AgentState) -> str:
     if state.get("final_explanation"):
         return "end"
         
-    if state["execution_error"]:
+    if state.get("execution_error"):
         if state["retries"] < state["max_retries"]:
             return "generate_code"
         else:
-            return "end" # Max retries reached, exit with error
+            return "explain_result" # Max retries reached, explain failure gracefully with sentence
     return "explain_result" # Success, explain result
 
 def build_graph() -> StateGraph:

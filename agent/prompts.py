@@ -13,7 +13,7 @@ Your output MUST be ONLY a valid JSON object (without markdown backticks wrappin
   "status": "OK" | "OFF_TOPIC" | "VAGUE" | "UNSAFE",
   "message": "If not OK, polite explanation/summary. If OFF_TOPIC, list available columns briefly. If VAGUE, give a short summary of the data.",
   "suggestions": ["If OFF_TOPIC or VAGUE, provide 3 to 5 relevant question suggestions based on actual columns"],
-  "python_code": "If OK, write Python pandas code to answer the user's question. `df` is already loaded. Print the final result. If chart, save to `chart.png`. Do NOT import dangerous modules."
+  "python_code": "If OK, write Python pandas code to directly calculate and print the exact answer (e.g. use df.shape for row/column counts, df['col'].min() for minimum, etc., with print() displaying the result with numbers). `df` is already loaded. Print the final result. If chart, save to `chart.png`. Do NOT import dangerous modules."
 }
 """
 
@@ -32,5 +32,6 @@ The user asked: {question}
 The code executed successfully and produced the following output:
 {output}
 
-Explain the result to the user in simple, plain English. Do not show the code in this step, just interpret the answer.
+Explain the result to the user in simple, plain English in 1-2 complete sentences. You MUST include the specific numbers, counts, values, or metrics from the output. Do not show code in this step, just state the answer clearly with the numbers.
 """
+
