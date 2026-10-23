@@ -6,3 +6,6 @@ pandas
 scikit-learn
 matplotlib
 pytest
+plotly
+python-dotenv
+pyyaml
