@@ -1,0 +1,20 @@
+[
+    {
+        "id": 1,
+        "dataset": "iris.csv",
+        "question": "What is the mean sepal length of the dataset?",
+        "expected_answer_contains": ["5.84"]
+    },
+    {
+        "id": 2,
+        "dataset": "iris.csv",
+        "question": "How many rows belong to the setosa species?",
+        "expected_answer_contains": ["50"]
+    },
+    {
+        "id": 3,
+        "dataset": "california.csv",
+        "question": "What is the maximum median income?",
+        "expected_answer_contains": ["15.0"]
+    }
+]

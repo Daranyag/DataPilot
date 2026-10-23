@@ -1,0 +1,174 @@
+Linear Regression:
+  description: "A simple linear approach to modeling the relationship between a dependent variable and one or more independent variables."
+  works_well: "Works well when relationships between features and the target are linear and there's little noise."
+  struggles: "Struggles with non-linear relationships, outliers, and highly correlated features."
+Ridge Regression:
+  description: "A linear regression model that applies L2 regularization to prevent overfitting."
+  works_well: "Works well when there is multicollinearity or when there are many features."
+  struggles: "Struggles when the true relationship is non-linear."
+Lasso Regression:
+  description: "A linear regression model that applies L1 regularization to perform feature selection."
+  works_well: "Works well for datasets with many features where only a small subset is actually relevant."
+  struggles: "Struggles if features are highly correlated or if the relationship is non-linear."
+ElasticNet Regression:
+  description: "A linear regression model that combines both L1 and L2 regularization."
+  works_well: "Works well when there are multiple correlated features and you need a balance of sparsity and stability."
+  struggles: "Struggles with purely non-linear relationships."
+Polynomial Regression:
+  description: "An extension of linear regression that models non-linear relationships using polynomial terms."
+  works_well: "Works well for simple non-linear curves."
+  struggles: "Prone to severe overfitting if the degree is too high."
+Decision Tree Regressor:
+  description: "A model that splits the data into branches based on feature values to make predictions."
+  works_well: "Works well with non-linear data and categorical features."
+  struggles: "Struggles with overfitting and generalizing to smooth, continuous relationships."
+Random Forest Regressor:
+  description: "An ensemble model that builds multiple decision trees and averages their predictions."
+  works_well: "Works well on a wide variety of datasets, handling non-linearity and resisting overfitting."
+  struggles: "Struggles with very high-dimensional sparse data."
+Extra Trees Regressor:
+  description: "Similar to Random Forest but with more randomized splits for faster training and less variance."
+  works_well: "Works well for noisy datasets where variance reduction is needed."
+  struggles: "Can have higher bias than Random Forest."
+AdaBoost Regressor:
+  description: "Builds simple models sequentially, focusing on instances that were previously poorly predicted."
+  works_well: "Works well for boosting the performance of simple models."
+  struggles: "Sensitive to noisy data and outliers."
+Gradient Boosting Regressor:
+  description: "An ensemble model that builds trees sequentially, with each tree correcting the errors of the previous ones."
+  works_well: "Works very well for complex, non-linear relationships."
+  struggles: "Struggles with overfitting if not tuned properly, and can be slow."
+HistGradientBoosting Regressor:
+  description: "A fast, histogram-based variant of Gradient Boosting designed for large datasets."
+  works_well: "Works exceptionally well for large datasets with tens of thousands of samples."
+  struggles: "Can be overkill for very small datasets."
+Bagging Regressor:
+  description: "An ensemble that trains many models on random subsets of the data and averages them."
+  works_well: "Reduces variance of complex, high-variance base models."
+  struggles: "Does not reduce bias."
+Support Vector Regressor:
+  description: "Attempts to fit a line within a specific margin of tolerance, using kernels for non-linear data."
+  works_well: "Works well for medium-sized datasets with complex relationships."
+  struggles: "Scales poorly to very large datasets (O(N^2) complexity)."
+KNN Regressor:
+  description: "Predicts the target by averaging the values of the K nearest neighbors in the training set."
+  works_well: "Simple and intuitive for local non-linear patterns."
+  struggles: "Scales poorly at prediction time and suffers in high dimensions."
+MLP Regressor:
+  description: "A multi-layer perceptron (neural network) for regression tasks."
+  works_well: "Capable of learning highly complex, non-linear patterns."
+  struggles: "Slow to train, requires much tuning, and needs scaled data."
+
+Logistic Regression:
+  description: "A linear model used for binary and multiclass classification by predicting probabilities."
+  works_well: "Works well for linearly separable classes."
+  struggles: "Struggles when the decision boundary is highly non-linear."
+Perceptron:
+  description: "A simple linear binary classifier that updates weights on mistakes."
+  works_well: "Fast online learning for simple boundaries."
+  struggles: "Cannot solve non-linear problems."
+SVM (Linear Kernel):
+  description: "Finds the best separating hyper-plane between classes using linear geometry."
+  works_well: "Excellent for text classification and high-dimensional sparse data."
+  struggles: "Scales poorly to large number of rows."
+SVM (RBF Kernel):
+  description: "Finds complex non-linear boundaries using the kernel trick."
+  works_well: "Highly accurate for non-linear, complex borders."
+  struggles: "Extremely slow on large datasets (O(N^2) complexity)."
+Linear Discriminant Analysis (LDA):
+  description: "Projects data to maximize class separation assuming normal distributions."
+  works_well: "Works well when classes are normally distributed with similar variances."
+  struggles: "Fails if data strongly violates normality assumptions."
+Quadratic Discriminant Analysis (QDA):
+  description: "Similar to LDA but allows each class to have its own variance/covariance matrix."
+  works_well: "Good for non-linear boundaries where classes have different spreads."
+  struggles: "Requires more data to estimate parameters than LDA."
+Gaussian Naive Bayes:
+  description: "A probabilistic classifier assuming features are independent and normally distributed."
+  works_well: "Extremely fast, good baseline for continuous data."
+  struggles: "Fails when features are highly correlated."
+Bernoulli Naive Bayes:
+  description: "A Naive Bayes classifier designed for binary/boolean features."
+  works_well: "Great for binary text occurrence classification."
+  struggles: "Cannot handle continuous data well."
+Decision Tree Classifier:
+  description: "A model that splits the data into branches based on feature values to make predictions."
+  works_well: "Works well with non-linear data and categorical features."
+  struggles: "Prone to severe overfitting."
+Random Forest Classifier:
+  description: "An ensemble model that builds multiple decision trees and votes on the final class."
+  works_well: "Robust, accurate, and handles mixed data types well."
+  struggles: "Slower to predict than linear models."
+Extra Trees Classifier:
+  description: "More randomized version of Random Forest."
+  works_well: "Good for noisy data."
+  struggles: "May slightly underfit compared to Random Forest."
+AdaBoost Classifier:
+  description: "Boosts simple classifiers by focusing on misclassified points."
+  works_well: "Often achieves high accuracy on simple tabular data."
+  struggles: "Very sensitive to noisy labels."
+Gradient Boosting Classifier:
+  description: "Sequentially corrects errors of previous trees."
+  works_well: "Top-tier accuracy for tabular data."
+  struggles: "Slow training time."
+HistGradientBoosting Classifier:
+  description: "Fast histogram-based Gradient Boosting."
+  works_well: "Excellent for large datasets, native NaN support."
+  struggles: "Needs a minimum amount of data to be useful."
+Bagging Classifier:
+  description: "Trains multiple base models on subsets and averages them."
+  works_well: "Reduces variance of prone-to-overfit models."
+  struggles: "Resource intensive."
+KNN Classifier:
+  description: "Classifies based on the majority vote of the K nearest neighbors."
+  works_well: "Intuitive, non-parametric boundary."
+  struggles: "Curse of dimensionality, slow prediction."
+MLP Classifier:
+  description: "A neural network classifier."
+  works_well: "Incredible capability for complex patterns."
+  struggles: "Computationally expensive and hard to tune."
+
+K-Means:
+  description: "A clustering algorithm that partitions data into a predefined number of distinct clusters."
+  works_well: "Works well for identifying roughly spherical, equally-sized clusters in large datasets."
+  struggles: "Struggles with clusters of varying sizes, densities, or non-globular shapes."
+MiniBatch K-Means:
+  description: "A faster version of K-Means that processes data in small batches."
+  works_well: "Ideal for massive datasets where standard K-Means is too slow."
+  struggles: "Slightly less accurate than standard K-Means."
+Gaussian Mixture:
+  description: "Models clusters as a mixture of Gaussian distributions, allowing for elliptical shapes."
+  works_well: "Handles overlapping clusters and provides soft probability assignments."
+  struggles: "Can fail to converge or overfit if there are too many dimensions."
+Agglomerative (Ward):
+  description: "A hierarchical clustering method that minimizes variance within clusters."
+  works_well: "Finds hierarchical structures without needing to pre-specify k initially (though we do here)."
+  struggles: "O(N^3) time complexity; cannot handle large datasets."
+Agglomerative (Average):
+  description: "Hierarchical clustering merging clusters based on average distances."
+  works_well: "Less prone to chaining than single linkage."
+  struggles: "Computationally heavy."
+Agglomerative (Complete):
+  description: "Hierarchical clustering merging based on maximum distance between clusters."
+  works_well: "Produces highly compact, spherical clusters."
+  struggles: "Sensitive to outliers."
+DBSCAN:
+  description: "A density-based clustering algorithm that groups closely packed points."
+  works_well: "Works well for arbitrary shapes and automatically detects outliers."
+  struggles: "Struggles with varying densities and high dimensions."
+OPTICS:
+  description: "Similar to DBSCAN but handles varying densities better."
+  works_well: "Better at discovering clusters in data with varying density."
+  struggles: "Extremely slow computationally."
+BIRCH:
+  description: "Constructs a tree structure to cluster large datasets incrementally."
+  works_well: "Very fast and memory efficient for large datasets."
+  struggles: "Assumes spherical clusters, struggles in high dimensions."
+K-Medoids:
+  description: "Similar to K-Means but uses actual data points as cluster centers."
+  works_well: "More robust to noise and outliers than K-Means."
+  struggles: "O(N^2) complexity, scaling very poorly."
+Default:
+  description: "A general machine learning algorithm."
+  works_well: "Works well when its mathematical assumptions align with the data distribution."
+  struggles: "Struggles when the data violates its core assumptions."

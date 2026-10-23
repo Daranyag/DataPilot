@@ -1,0 +1,8 @@
+streamlit
+google-genai
+langgraph
+langchain-core
+pandas
+scikit-learn
+matplotlib
+pytest
