@@ -34,6 +34,15 @@ class SafeLLMResult:
 def get_llm_client() -> Tuple[genai.Client, Optional[str]]:
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
+        try:
+            import streamlit as st
+            api_key = st.secrets.get("GEMINI_API_KEY")
+            if api_key:
+                os.environ["GEMINI_API_KEY"] = api_key
+        except Exception:
+            pass
+
+    if not api_key:
          return None, "GEMINI_API_KEY environment variable is missing. Please set it in .env or your system environment variables."
     try:
         # http_options timeout doesn't exist in the current version of the library shown in docs

@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 
 # Load API key
 load_dotenv()
+if "GEMINI_API_KEY" not in os.environ and hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
+    os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
 
 import sys
 from pathlib import Path
@@ -236,21 +238,28 @@ if st.session_state.df is not None:
                     
                         try:
                             final_state = st.session_state.agent_workflow.invoke(initial_state)
-                        
-                            st.markdown(final_state["final_explanation"])
+                            explanation = final_state.get("final_explanation")
+                            exec_output = final_state.get("execution_output")
+                            if explanation:
+                                st.markdown(explanation)
+                            elif exec_output:
+                                st.text(exec_output)
+                            else:
+                                st.write("Code executed successfully.")
+
                             with st.expander("Generated Code"):
                                 st.code(final_state["generated_code"], language="python")
                             
                             # Handle FIT_CHECK rendering
                             fit_evidence = None
-                            if final_state["execution_output"]:
+                            if exec_output:
                                     try:
-                                        out_json = json.loads(final_state["execution_output"])
+                                        out_json = json.loads(exec_output)
                                         if "fit_check_evidence" in out_json:
-                                            fit_evidence = out_json["fit_check_evidence"]
+                                             fit_evidence = out_json["fit_check_evidence"]
                                     except:
                                         pass
-                                    
+                                     
                                     if fit_evidence:
                                         verdict = fit_evidence["verdict"]["verdict"]
                                         color = "green" if verdict == "Good fit" else "orange" if verdict == "Okay" else "red"
@@ -263,7 +272,7 @@ if st.session_state.df is not None:
                                                 st.table(pd.DataFrame(fit_evidence["assumptions"]))
                                             else:
                                                 st.write("No violations found.")
-                                        
+                                         
                                         if fit_evidence["measured"].get("score"):
                                             st.write(f"Measured Score: {fit_evidence['measured']['score']:.4f}")
                                 
@@ -279,14 +288,13 @@ if st.session_state.df is not None:
                                     has_chart = os.path.exists(chart_path)
                                     if has_chart:
                                         st.image(chart_path)
-                            
                                     st.session_state.agent_history.append({
                                         "role": "assistant",
-                                        "content": final_state["final_explanation"],
-                                    "output": final_state["execution_output"],
-                                    "code": final_state["generated_code"],
-                                    "chart": chart_path if has_chart else None,
-                                    "fit_evidence": fit_evidence
+                                        "content": explanation or (f"```text\n{exec_output}\n```" if exec_output else "Executed."),
+                                        "output": exec_output,
+                                        "code": final_state["generated_code"],
+                                        "chart": chart_path if has_chart else None,
+                                        "fit_evidence": fit_evidence
                                     })
                                     st.rerun()
                         except Exception as e:

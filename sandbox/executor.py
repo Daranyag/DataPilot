@@ -41,10 +41,11 @@ except Exception as e:
         with open(script_path, "w", encoding="utf-8") as f:
             f.write(script_content)
 
+        import sys
         # 3. Execute in subprocess
-        # We run the script in a fresh python process
+        # We run the script in the same python virtual environment
         result = subprocess.run(
-            ["python", script_path],
+            [sys.executable, script_path],
             capture_output=True,
             text=True,
             timeout=TIMEOUT_SECONDS,
