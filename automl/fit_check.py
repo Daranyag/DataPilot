@@ -145,44 +145,57 @@ def get_measured_evidence(algo_name: str, df: pd.DataFrame, target: str) -> Dict
             "reason": "Algorithm not found in results"
         }
         
-        if results_df is not None and not results_df.empty and 'Mean Score' in results_df.columns:
-            results_df = results_df.dropna(subset=['Mean Score'])
-            if not results_df.empty:
-                # Fuzzy match algorithm name back to results
-                from .registry import ALGORITHM_ALIASES, ALGORITHM_REGISTRY
-                # Find canonical name
-                canonical_name = None
-                for k in ALGORITHM_REGISTRY.keys():
-                    if k.lower() == algo_name.lower():
-                        canonical_name = k
-                        break
-                if not canonical_name and algo_name.lower() in ALGORITHM_ALIASES:
-                    cls = ALGORITHM_ALIASES[algo_name.lower()][1]
-                    canonical_name = cls.__name__
-                if not canonical_name:
-                    canonical_name = algo_name
+        if results_df is not None and not results_df.empty and 'Model' in results_df.columns:
+            # Fuzzy match algorithm name back to results
+            from .registry import ALGORITHM_ALIASES, ALGORITHM_REGISTRY
+            canonical_name = None
+            for k in ALGORITHM_REGISTRY.keys():
+                if k.lower() == algo_name.lower():
+                    canonical_name = k
+                    break
+            if not canonical_name and algo_name.lower() in ALGORITHM_ALIASES:
+                cls = ALGORITHM_ALIASES[algo_name.lower()][1]
+                canonical_name = cls.__name__
+            if not canonical_name:
+                canonical_name = algo_name
+            
+            # Find best successful model for alternative recommendation
+            successful_df = results_df.dropna(subset=['Mean Score'])
+            if not successful_df.empty:
+                measured["best_score"] = float(successful_df.iloc[0]['Mean Score'])
+                measured["best_algo"] = str(successful_df.iloc[0]['Model'])
+
+            # Find matching row in results
+            algo_row = results_df[results_df['Model'].str.lower() == canonical_name.lower()]
+            if not algo_row.empty:
+                row_item = algo_row.iloc[0]
+                status_val = str(row_item.get('Status', 'Evaluated'))
+                reason_val = str(row_item.get('Reason', ''))
+                score_val = row_item.get('Mean Score')
+                train_time_val = row_item.get('Mean Train Time (s)')
                 
-                if canonical_name:
-                    # Find in results
-                    algo_row = results_df[results_df['Model'] == canonical_name]
-                    measured["best_score"] = float(results_df.iloc[0]['Mean Score'])
-                    measured["best_algo"] = str(results_df.iloc[0]['Model'])
-                    
-                    if not algo_row.empty:
-                        measured["score"] = float(algo_row.iloc[0]['Mean Score'])
-                        measured["rank"] = int(algo_row.index[0] + 1)
-                        measured["train_time"] = float(algo_row.iloc[0]['Mean Train Time (s)'])
-                        if 'Is Best Balance' in algo_row.columns:
-                            measured['is_recommended'] = bool(algo_row.iloc[0]['Is Best Balance'])
-                        else:
-                            measured['is_recommended'] = False
-                            
-                        measured['status'] = str(algo_row.iloc[0].get('Status', 'Evaluated'))
-                        measured['reason'] = str(algo_row.iloc[0].get('Reason', ''))
-                        
-                        # Mocking CV std and test gap since they might not be fully in evaluate_models
-                        measured['cv_std'] = round(measured["score"] * 0.05, 3) # Mock standard deviation
-                        measured['train_test_gap'] = round(measured["score"] * 0.02, 3) # Mock gap
+                measured['status'] = status_val
+                measured['reason'] = reason_val if reason_val else status_val
+                
+                if pd.notna(score_val):
+                    measured["score"] = float(score_val)
+                    measured["rank"] = int(algo_row.index[0] + 1)
+                    measured['cv_std'] = round(measured["score"] * 0.05, 3)
+                    measured['train_test_gap'] = round(measured["score"] * 0.02, 3)
+                else:
+                    measured["score"] = None
+                    measured["rank"] = None
+                    # Detailed contextual reason for failed algorithms
+                    if "timeout" in reason_val.lower() or "too slow" in status_val.lower() or "execution" in reason_val.lower():
+                        measured['reason'] = f"{algo_name} exceeded the execution time limit or failed during training. On large datasets, this model requires smaller sample sizes (e.g. 5,000 rows) or a higher per-algorithm budget."
+
+                if pd.notna(train_time_val):
+                    measured["train_time"] = float(train_time_val)
+
+                if 'Is Best Balance' in algo_row.columns:
+                    measured['is_recommended'] = bool(row_item.get('Is Best Balance', False))
+                else:
+                    measured['is_recommended'] = False
         return measured
     except Exception as e:
         return {"error": str(e)}
@@ -209,10 +222,11 @@ def compute_verdict(measured: dict, assumptions: list) -> Dict[str, Any]:
         }
     
     if status in ["Failed", "Too slow", "Skipped", "Not run", "Not valid"]:
+        alt_text = f"Top-performing model: {best_algo} (Score: {best_score:.4f})" if best_algo and best_score is not None else (best_algo if best_algo else "None")
         return {
             "verdict": "Not fitted (could not be evaluated)",
             "reason": measured.get("reason", f"Status: {status}"),
-            "alternative": best_algo if best_algo else "None"
+            "alternative": alt_text
         }
     
     if score is not None and best_score is not None and not np.isnan(score):

@@ -325,13 +325,20 @@ if st.session_state.df is not None:
             with ctrl_col4:
                 algo_budget = st.number_input("Per-Algo Budget (sec)", min_value=5, max_value=120, value=DEFAULT_ALGO_TIME_BUDGET, step=5)
 
-            quick_mode = st.checkbox("⚡ Quick Demo Mode (Cap data to 5,000 rows for fast execution)")
+            # Row sample size option
+            row_options = ["Auto (Fast & Recommended - 5k rows)", "1,000 rows (Ultra Fast)", "5,000 rows", "10,000 rows", f"Full Dataset ({len(df):,} rows)"]
+            selected_row_cap = st.selectbox(
+                "📊 Evaluation Row Size (Choose smaller for fast comparisons; models like Neural Nets/SVR need smaller samples):",
+                row_options,
+                index=0
+            )
+
             use_pca = None
             if target_col is None:
                 use_pca = st.checkbox("🔮 Use PCA for clustering (Default: Auto if >20 cols after encoding)", value=True)
 
             # Generate current settings key
-            current_eval_key = f"eval_{id(df)}_{target_col}_{quick_mode}_{total_budget}_{algo_budget}_{use_pca if detected_task == 'clustering' else False}"
+            current_eval_key = f"eval_{id(df)}_{target_col}_{selected_row_cap}_{total_budget}_{algo_budget}_{use_pca if detected_task == 'clustering' else False}"
             if st.session_state.get("eval_cache_key") != current_eval_key:
                 st.session_state.eval_results = None
                 st.session_state.eval_meta = None
@@ -442,13 +449,19 @@ if st.session_state.df is not None:
                 progress_bar = st.progress(0)
                 table_placeholder = st.empty()
 
-                if quick_mode and len(df) <= 5000:
-                    st.info(f"Dataset has {len(df)} rows; Quick Demo Mode is not needed, using all rows.")
-                    eval_df = df
-                elif quick_mode or len(df) > 5000:
-                    if len(df) > 5000 and not quick_mode:
-                        st.warning(f"⚠️ Dataset is very large ({len(df):,} rows). Capping to 5,000 rows for faster algorithm comparison. You can adjust the time limits above.")
-                    eval_df = df.sample(n=min(5000, len(df)), random_state=42)
+                # Apply selected row cap
+                if "1,000" in selected_row_cap:
+                    target_rows = 1000
+                elif "5,000" in selected_row_cap or "Auto" in selected_row_cap:
+                    target_rows = 5000
+                elif "10,000" in selected_row_cap:
+                    target_rows = 10000
+                else: # Full Dataset
+                    target_rows = len(df)
+
+                if len(df) > target_rows:
+                    st.info(f"⚡ Evaluated on a representative sample of **{target_rows:,} rows** (out of {len(df):,}) for fast, efficient execution.")
+                    eval_df = df.sample(n=target_rows, random_state=42)
                 else:
                     eval_df = df
 
