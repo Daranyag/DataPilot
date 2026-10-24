@@ -58,31 +58,96 @@ status_color = "green" if "Connected" in st.session_state.ai_status else "red" i
 st.sidebar.markdown(f"**Status:** <span style='color:{status_color}'>{st.session_state.ai_status}</span>", unsafe_allow_html=True)
 st.sidebar.divider()
 
-# File Upload
+# File Upload & Previous Datasets History
+DATASETS_DIR = os.path.join(tempfile.gettempdir(), "datapilot_datasets")
+os.makedirs(DATASETS_DIR, exist_ok=True)
+
+if "uploaded_datasets" not in st.session_state:
+    st.session_state.uploaded_datasets = {}
+
+# Also discover any existing CSVs previously saved in DATASETS_DIR
+try:
+    for fname in os.listdir(DATASETS_DIR):
+        if fname.endswith(".csv"):
+            fpath = os.path.join(DATASETS_DIR, fname)
+            if fname not in st.session_state.uploaded_datasets and os.path.isfile(fpath):
+                st.session_state.uploaded_datasets[fname] = fpath
+except Exception:
+    pass
+
+st.sidebar.subheader("Dataset Selection")
+
+# If there are previous datasets, show selectbox
+previous_options = list(st.session_state.uploaded_datasets.keys())
+selected_prev = None
+if previous_options:
+    selected_prev = st.sidebar.selectbox(
+        "Choose from previously uploaded datasets:",
+        ["None"] + previous_options,
+        index=0,
+        help="Select an already uploaded CSV dataset to work with"
+    )
+
 uploaded_file = st.sidebar.file_uploader("Upload your dataset (CSV)", type=["csv"])
 
+# Determine which file/dataset source to use
+file_to_load = None
+dataset_name = None
+
 if uploaded_file is not None:
-    if st.session_state.df is None or st.sidebar.button("Reload Dataset"):
+    file_to_load = uploaded_file
+    dataset_name = uploaded_file.name
+elif selected_prev and selected_prev != "None":
+    file_to_load = st.session_state.uploaded_datasets[selected_prev]
+    dataset_name = selected_prev
+
+if file_to_load is not None:
+    need_reload = (
+        st.session_state.df is None
+        or st.session_state.get("current_dataset_name") != dataset_name
+        or st.sidebar.button("Reload Dataset")
+    )
+    if need_reload:
         try:
-            try:
-                df = pd.read_csv(uploaded_file, encoding='utf-8')
-            except UnicodeDecodeError:
-                uploaded_file.seek(0)
-                df = pd.read_csv(uploaded_file, encoding='latin-1')
+            if isinstance(file_to_load, str):
+                try:
+                    df = pd.read_csv(file_to_load, encoding='utf-8')
+                except UnicodeDecodeError:
+                    df = pd.read_csv(file_to_load, encoding='latin-1')
+                temp_path = file_to_load
+            else:
+                try:
+                    df = pd.read_csv(file_to_load, encoding='utf-8')
+                except UnicodeDecodeError:
+                    file_to_load.seek(0)
+                    df = pd.read_csv(file_to_load, encoding='latin-1')
+                
+                # Save into persistent datasets directory and temp
+                temp_path = os.path.join(DATASETS_DIR, file_to_load.name)
+                df.to_csv(temp_path, index=False)
+                # Keep also in tempfile root if needed by other tools
+                temp_root_path = os.path.join(tempfile.gettempdir(), file_to_load.name)
+                df.to_csv(temp_root_path, index=False)
+                st.session_state.uploaded_datasets[file_to_load.name] = temp_path
                 
             if df.empty:
                 st.sidebar.error("The uploaded file is empty.")
             elif len(df) < 5:
                 st.sidebar.error("The dataset has too few rows to be analyzed.")
             else:
+                # Reset cached profile and summary when switching datasets
+                if st.session_state.get("current_dataset_name") != dataset_name:
+                    st.session_state.pop("profile", None)
+                    st.session_state.pop("profile_summary", None)
+                    st.session_state.pop("cached_dataset_summary", None)
+                    st.session_state.agent_history = []
+                    st.session_state.eval_results = None
+                    st.session_state.eval_meta = None
+
                 st.session_state.df = df
-                
-                # Save temp file for sandbox
-                temp_dir = tempfile.gettempdir()
-                temp_path = os.path.join(temp_dir, uploaded_file.name)
-                df.to_csv(temp_path, index=False)
                 st.session_state.df_path = temp_path
-                st.sidebar.success("Data loaded!")
+                st.session_state.current_dataset_name = dataset_name
+                st.sidebar.success(f"Data loaded: {dataset_name}")
         except Exception as e:
             import logging
             logging.error(f"Error loading file: {e}")
